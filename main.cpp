@@ -12,7 +12,7 @@
 
 // Función de distribución acumulativa normal estándar (CDF)
 double cdf(double x) {
-    return 0.5 * (1 + erf(x / sqrt(2)));
+    return 0.5 * (1 + std::erf(x / std::sqrt(2)));
 }
 
 double calculate_d1(double S, double K, double T, double r, double sigma){
@@ -70,6 +70,7 @@ struct OptionData {
     double price;
     double under_price;
     double implied_volatility;
+    double under_volatility;
     double expiration;
 };
 
@@ -210,7 +211,7 @@ void saveFile(const std::vector<OptionData>& dataframe) {
     std::ofstream archivoSalida(archivoPath);
 
     // Encabezados
-    archivoSalida << "Description,Strike,Kind,Bid,Ask,Under Bid,Under Ask,Created At,Price,Under Price,Implied volatility,Years to expiration\n";
+    archivoSalida << "Description,Strike,Kind,Bid,Ask,Under Bid,Under Ask,Created At,Price,Under Price,Implied volatility,Under volatility,Years to expiration\n";
 
     // Verificar si el archivo se abrió correctamente
     if (!archivoSalida.is_open()) {
@@ -231,6 +232,7 @@ void saveFile(const std::vector<OptionData>& dataframe) {
                       << row.price << ","
                       << row.under_price << ","
                       << row.implied_volatility << ","
+                      << row.under_volatility << ","
                       << row.expiration << "\n";
     }
 
@@ -445,6 +447,14 @@ void replaceMissingValues(std::vector<Data>& data){
     return;
 }
 
+double calculateUnderVolatility(const double& bid, const double& ask) {
+    double logDifference = std::log(bid) - std::log(ask);
+    double term1 = 0.5 * std::pow(logDifference, 2);
+    double term2 = (2 * std::log(2) - 1) * std::pow(logDifference, 2);
+
+    return std::sqrt(term1 - term2);
+}
+
 int main() {
 
     // Vector para almacenar filas del DataFrame
@@ -552,34 +562,13 @@ int main() {
             isValidDouble(datos[i].ask, ask)) {
                 opcion.price = (bid + ask) / 2;
         }
-        /*
-        if (!elementos[3].empty() && isValidDouble(elementos[3], bid)){
-            if (!elementos[4].empty() && isValidDouble(elementos[4], ask)) {
-                opcion.price = (bid + ask) / 2;
-            } else {
-                opcion.price = bid;
-            }
-        } else if(!elementos[4].empty() && isValidDouble(elementos[4], ask)){
-            opcion.price = ask;
-        }
-        */
 
         if (isValidDouble(datos[i].underBid, under_bid) &&
             isValidDouble(datos[i].underAsk, under_ask)) {
                 opcion.under_price = (under_ask + under_bid) / 2;
+                opcion.under_volatility = calculateUnderVolatility(under_bid, under_ask);
         }
 
-        /*
-        if (!elementos[5].empty() && isValidDouble(elementos[5], under_bid)) {
-            if (!elementos[6].empty() && isValidDouble(elementos[6], under_ask)) {
-                opcion.under_price = (under_ask + under_bid) / 2;
-            } else {
-                opcion.under_price = under_bid;
-            }
-        } else if (!elementos[6].empty() && isValidDouble(elementos[6], under_ask)) {
-            opcion.under_price = under_ask;
-        }
-        */
         // Valido con una expresion regular que la fecha tenga siempre
         // el mismo formato.
         if (!datos[i].created_at.empty()) {
