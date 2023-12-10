@@ -3,13 +3,74 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <regex>
 #include <string>
+#include <cmath>
+#include <ctime>
+#include <chrono>
+#include <filesystem>
+
+// Función de distribución acumulativa normal estándar (CDF)
+double cdf(double x) {
+    return 0.5 * (1 + erf(x / sqrt(2)));
+}
+
+double calculate_d1(double S, double K, double T, double r, double sigma){
+    return (std::log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * std::sqrt(T));
+}
+
+// Definición de la función de Black-Scholes para opciones de compra
+double blackScholesCall(double S, double K, double T, double r, double sigma) {
+
+    double d1 = calculate_d1(S, K, T, r, sigma);
+
+    double d2 = d1 - sigma * std::sqrt(T);
+
+    return S * cdf(d1) - K * std::exp(-r * T) * cdf(d2);
+}
+
+double findImpliedVolatility(double S, double K, double T, double r, double optionPrice,
+                              double a, double b, double tolerance, int maxIterations) {
+    /* Se utiliza el metodo de biseccion para calcular la volatilidad implicita,
+    este metodo define los dos extremos (a y b) y calcula el punto en el medio (p).
+    En base a este punto medio se calcula el precio de la opcion y se evalua si
+    hay que ir a la derecha o izquierda de p, achicando el intervalo.
+    */
+    double p, precio_teorico;
+    
+    for (int i = 0; i < maxIterations; ++i) {
+        p = (a+b)/2;
+
+        precio_teorico = blackScholesCall(S, K, T, r, p);
+        
+        if( fabs(precio_teorico-optionPrice) < tolerance) {
+            return p;
+        }
+
+        if (optionPrice > precio_teorico) {
+            a = p;
+        } else {
+            b = p;
+        }
+    }
+    return -1.0;
+}
 
 // Definición de la "clase" para representar el DataFrame
 struct OptionData {
+    std::string description;
+    int strike;
+    std::string kind;
+    double bid;
+    double ask;
+    double under_bid;
+    double under_ask;
+    std::string created_at;
+    std::string expiration_date;
     double price;
     double under_price;
-    std::string created_at;
+    double implied_volatility;
+    double expiration;
 };
 
 // Función de validación para la conversión de cadena a double
@@ -54,16 +115,362 @@ bool isValidDouble(const std::string& str, double& result) {
     }
 }
 
+bool isValidFormatDate(const std::string& date) {
+    // Expresión regular para el formato de fecha
+    std::regex date_regex("^(0?[1-9]|1[0-2])/(0?[1-9]|1[0-9]|2[0-9]|3[0-1])/(20[0-9][0-9]) (0?[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$");
+    /*
+    (0?[1-9]|1[0-2]): Representa el mes, permitiendo un dígito opcional para los 
+    meses del 1 al 9.
+    (0?[1-9]|1[0-9]|2[0-9]|3[0-1]): Representa el día, permitiendo un dígito opcional 
+    para los días del 1 al 9 y dos dígitos para los días del 10 al 31.
+    (20[0-9][0-9]): Representa el año, asegurándose de que sea un año válido del 
+    siglo XXI.
+    (0?[0-9]|1[0-9]|2[0-3]): Representa la hora en formato de 24 horas,
+     permitiendo un dígito opcional para las horas del 0 al 9 y dos dígitos para 
+     las horas del 10 al 23.
+    ([0-5][0-9]): Representa los minutos, asegurándose de que estén en el rango 
+    de 00 a 59.
+    */
+
+    // Verificar si la cadena cumple con el formato
+    if (std::regex_match(date, date_regex)) {
+        return true;
+    } else {
+        std::cout << "Formato de fecha invalida: " << date  << "\n";
+        return false;
+    }
+}
+
+bool isValidFormatExpirationDate(const std::string& date) {
+    // Expresión regular para el formato de fecha
+    std::regex date_regex("\\d{2}/\\d{2}/\\d{4}");
+
+    // Verificar si la cadena cumple con el formato
+    if (std::regex_match(date, date_regex)) {
+        return true;
+    } else {
+        std::cout << "Formato de fecha de vencimiento invalida" << "\n";
+        return false;
+    }
+}
+
+// Función para obtener la diferencia en días entre dos fechas
+double obtenerDiferenciaEnAnios(const std::string& fecha1_str, const std::string& fecha2_str) {
+    // Convertir cadenas a tipos de fecha y hora
+    std::tm tm1 = {};
+    std::tm tm2 = {};
+
+    // The std::istringstream is a string class object which is used to stream 
+    // the string into different variables and similarly files can be stream into 
+    // strings
+    std::istringstream ss1(fecha1_str);
+    std::istringstream ss2(fecha2_str);
+
+    if (!isValidFormatDate(fecha1_str)) {
+        return -1;
+    }
+
+    if (!isValidFormatExpirationDate(fecha2_str)) {
+        return -1;
+    }
+
+    // Formato de fecha y hora para la primer cadena
+    ss1 >> std::get_time(&tm1, "%m/%d/%Y");
+    // Ignorar el espacio entre la fecha y la hora
+    ss1.ignore(1);
+    ss1 >> std::get_time(&tm1, "%H:%M:%S");
+
+    // Formato de fecha para la segunda cadena
+    ss2 >> std::get_time(&tm2, "%d/%m/%Y %H:%M:%S");
+
+    // Convertir a tipos de duración
+    std::time_t time1 = std::mktime(&tm1);
+    std::time_t time2 = std::mktime(&tm2);
+
+    if (time2 < time1) {
+        std::cout << "Error en la fecha de expiracion"
+                  << "no puede ser menor a la fecha de valuacion de la opcion";
+
+        return -1.0;
+    }
+
+    // Primero calcula la diferencia en segundos y despues la pasa a años
+    auto duracion = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::seconds(time2 - time1));
+    double diferencia_en_anios = duracion.count() / (365 * 24 * 60 * 60); // Dividir por segundos en un año
+
+    return diferencia_en_anios;
+}
+
+void saveFile(const std::vector<OptionData>& dataframe) {
+
+    // Nombre del archivo
+    std::filesystem::path archivoPath = "output.csv";
+
+    // Abrir un archivo para escritura
+    std::ofstream archivoSalida(archivoPath);
+
+    // Encabezados
+    archivoSalida << "Description,Strike,Kind,Bid,Ask,Under Bid,Under Ask,Created At,Price,Under Price,Implied volatility,Years to expiration\n";
+
+    // Verificar si el archivo se abrió correctamente
+    if (!archivoSalida.is_open()) {
+        std::cerr << "No se pudo abrir el archivo de salida." << std::endl;
+        return; // Salir sin escribir si hay un error
+    }
+
+    // Escribir en el archivo en lugar de imprimir en la consola
+    for (const auto& row : dataframe) {
+        archivoSalida << row.description << ","
+                      << row.strike << ","
+                      << row.kind << ","
+                      << row.bid << ","
+                      << row.ask << ","
+                      << row.under_bid << ","
+                      << row.under_ask << ","
+                      << row.created_at << ","
+                      << row.price << ","
+                      << row.under_price << ","
+                      << row.implied_volatility << ","
+                      << row.expiration << "\n";
+    }
+
+    // Cerrar el archivo después de escribir
+    archivoSalida.close();
+
+    std::cout << "Datos guardados correctamente" << std::endl;
+}
+
+struct Data {
+    std::string description;
+    std::string strike;
+    std::string kind;
+    std::string bid;
+    std::string ask;
+    std::string underBid;
+    std::string underAsk;
+    std::string created_at;
+};
+
+void replaceMissingValues(std::vector<Data>& data){
+    double bid, ask, underBid, underAsk;
+
+    // No encontre que se pueda iterar sobre los nombres de las columnas en c++
+
+    // Primera iteracion
+    if(!isValidDouble(data[0].ask, ask)) {
+        for (size_t i = 1; i < data.size(); i++) {
+            if(isValidDouble(data[i].ask, ask)) {
+                data[0].ask = data[i].ask;
+                break;
+            }
+        } 
+    }
+
+    if(!isValidDouble(data[0].bid, bid)) {
+        for (size_t i = 1; i < data.size(); i++) {
+            if(isValidDouble(data[i].bid, bid)) {
+                data[0].bid = data[i].bid;
+                break;
+            }
+        } 
+    }
+
+    if(!isValidDouble(data[0].underBid, underBid)) {
+        for (size_t i = 1; i < data.size(); i++) {
+            if(isValidDouble(data[i].underBid, underBid)) {
+                data[0].underBid = data[i].underBid;
+                break;
+            }
+        } 
+    }
+
+    if(!isValidDouble(data[0].underAsk, underAsk)) {
+        for (size_t i = 1; i < data.size(); i++) {
+            if(isValidDouble(data[i].underAsk, underAsk)) {
+                data[0].underAsk = data[i].underAsk;
+                break;
+            }
+        } 
+    }
+
+    // De la segunda iteracion a la anteultima
+
+    for (size_t i = 1; i < data.size() - 1; i++) {
+        if(!isValidDouble(data[i].ask, ask)) {
+            double punta_inferior = -1;
+            double punta_superior = -1;
+
+            for (size_t j = i; j >= 0; j--) {
+                if(isValidDouble(data[j].ask, ask)) {
+                    punta_inferior = ask;
+                    break;
+                }
+            }
+
+            for (size_t z = i; z < data.size(); z++) {
+                if(isValidDouble(data[z].ask, ask)) {
+                    punta_superior = ask;
+                    break;
+                }
+            }
+
+            if (punta_inferior != -1 && punta_superior != -1) {
+                data[i].ask = std::to_string((punta_inferior + punta_superior) / 2);
+            }
+
+
+        }
+    }
+
+    for (size_t i = 1; i < data.size() - 1; i++) {
+        if(!isValidDouble(data[i].bid, bid)) {
+            double punta_inferior = -1;
+            double punta_superior = -1;
+
+            for (size_t j = i; j >= 0; j--) {
+                if(isValidDouble(data[j].bid, bid)) {
+                    punta_inferior = bid;
+                    break;
+                }
+            }
+
+            for (size_t z = i; z < data.size(); z++) {
+                if(isValidDouble(data[z].bid, bid)) {
+                    punta_superior = bid;
+                    break;
+                }
+            }
+
+            if (punta_inferior != -1 && punta_superior != -1) {
+                data[i].bid = std::to_string((punta_inferior + punta_superior) / 2);
+            }
+
+
+        }
+    }
+
+    for (size_t i = 1; i < data.size() - 1; i++) {
+        if(!isValidDouble(data[i].underBid, underBid)) {
+            double punta_inferior = -1;
+            double punta_superior = -1;
+
+            for (size_t j = i; j >= 0; j--) {
+                if(isValidDouble(data[j].underBid, underBid)) {
+                    punta_inferior = underBid;
+                    break;
+                }
+            }
+
+            for (size_t z = i; z < data.size(); z++) {
+                if(isValidDouble(data[z].underBid, underBid)) {
+                    punta_superior = underBid;
+                    break;
+                }
+            }
+
+            if (punta_inferior != -1 && punta_superior != -1) {
+                data[i].underBid = std::to_string((punta_inferior + punta_superior) / 2);
+            }
+
+
+        }
+    }
+
+    for (size_t i = 1; i < data.size() - 1; i++) {
+        if(!isValidDouble(data[i].underAsk, underAsk)) {
+            double punta_inferior = -1;
+            double punta_superior = -1;
+
+            for (size_t j = i; j >= 0; j--) {
+                if(isValidDouble(data[j].underAsk, underAsk)) {
+                    punta_inferior = underAsk;
+                    break;
+                }
+            }
+
+            for (size_t z = i; z < data.size(); z++) {
+                if(isValidDouble(data[z].underAsk, underAsk)) {
+                    punta_superior = underAsk;
+                    break;
+                }
+            }
+
+            if (punta_inferior != -1 && punta_superior != -1) {
+                data[i].underAsk = std::to_string((punta_inferior + punta_superior) / 2);
+            }
+
+
+        }
+    } 
+
+    // ultima iteracion
+
+    if(!isValidDouble(data[data.size()].ask, ask)) {
+        for (size_t i = data.size(); i >= 0; i--) {
+            if(isValidDouble(data[i].ask, ask)) {
+                data[data.size()].ask = data[i].ask;
+                break;
+            }
+        } 
+    }
+
+    if(!isValidDouble(data[data.size()].bid, bid)) {
+        for (size_t i = data.size(); i >= 0; i--) {
+            if(isValidDouble(data[i].bid, bid)) {
+                data[data.size()].bid = data[i].bid;
+                break;
+            }
+        } 
+    }
+
+    if(!isValidDouble(data[data.size()].underAsk, underAsk)) {
+        for (size_t i = data.size(); i >= 0; i--) {
+            if(isValidDouble(data[i].underAsk, underAsk)) {
+                data[data.size()].underAsk = data[i].underAsk;
+                break;
+            }
+        } 
+    }
+
+    if(!isValidDouble(data[data.size()].underBid, underBid)) {
+        for (size_t i = data.size(); i >= 0; i--) {
+            if(isValidDouble(data[i].underBid, underBid)) {
+                data[data.size()].underBid = data[i].underBid;
+                break;
+            }
+        } 
+    }
+
+
+    return;
+}
+
 int main() {
 
     // Vector para almacenar filas del DataFrame
     std::vector<OptionData> dataframe;
 
     // Tasa libre de riesgo constante = 100%
+    // TNA
     int rf = 1;
+    double rf_continua = std::log(1 + rf);
 
     // Strike price constante 1033
     int strike = 1033;
+
+    // Las opciones expiran el tercer viernes de cada mes.
+    // En el caso de GFGC1033OC, expira el 20/10.
+    // El formato siempre es dd/mm/YYYY
+    std::string fecha_vencimiento = "20/10/2023";
+
+    if (!isValidFormatExpirationDate(fecha_vencimiento)) {
+        return 0;
+    }
+
+    // Para hacer la interpolacion
+    double initial_guess = 0.5; // Estimación inicial de la volatilidad
+    double tolerance = 0.00001; // Tolerancia
+    int max_iterations = 500;  // Número máximo de iteraciones
 
     // Nombre del archivo CSV que deseas abrir
     std::string nombreArchivo = "Exp_Octubre.csv";
@@ -71,12 +478,17 @@ int main() {
     // Crear un objeto ifstream e intentar abrir el archivo
     std::ifstream archivo(nombreArchivo);
 
+    std::vector<Data> datos;
+
     // Verifica si la apertura fue exitosa
     if (archivo.is_open()) {
         std::string linea;
 
         // Vector para almacenar elementos de cada línea
         std::vector<std::string> elementos;
+
+        // Leer la primera línea (encabezados)
+        std::getline(archivo, linea);
 
         // Lee cada línea del archivo
         while (std::getline(archivo, linea)) {
@@ -97,47 +509,111 @@ int main() {
 
             // Verifica si hay suficientes elementos para construir una fila
             if (elementos.size() >= 8) {
-                // Construye una estructura OptionData y agrega al DataFrame
-                OptionData opcion;
-                double bid;
-                double ask;
-                double under_bid;
-                double under_ask;
-                std::string created_at;
+                Data dato;
 
-                // Intenta convertir las cadenas a números solo si no están vacías y son válidas
-                if (!elementos[3].empty() && isValidDouble(elementos[3], bid) &&
-                    !elementos[4].empty() && isValidDouble(elementos[4], ask) &&
-                    !elementos[5].empty() && isValidDouble(elementos[5], under_bid) &&
-                    !elementos[6].empty() && isValidDouble(elementos[6], under_ask) &&
-                    !elementos[7].empty()) {
+                dato.description = elementos[0];
+                dato.strike = elementos[1];
+                dato.kind = elementos[2];
+                dato.bid = elementos[3];
+                dato.ask = elementos[4];
+                dato.underBid = elementos[5];
+                dato.underAsk = elementos[6];
+                dato.created_at = elementos[7];
 
-                    // No es necesario convertir nuevamente, ya que isValidDouble ya asigna a opcion.bid, opcion.ask, etc.
-                    opcion.created_at = elementos[7];
-                    opcion.price = (bid + ask) / 2;
-                    opcion.under_price = (under_ask + under_bid) / 2;
-
-                    dataframe.push_back(opcion);
-                }
-                
+                datos.push_back(dato);
             }
-
         }
-
-        // Cierra el archivo después de usarlo
-        archivo.close();
-
-        // Imprime el DataFrame
-        for (const auto& row : dataframe) {
-            std::cout << "Price: " << row.price << "\n"
-                      << "Under Price: " << row.under_price << "\n"
-                      << "Created at: " << row.created_at << "\n\n";
-        }
-
-
     } else {
         std::cerr << "Error al abrir el archivo." << std::endl;
+        return 0;
     }
+
+    // Cierra el archivo después de usarlo
+    archivo.close();
+
+    replaceMissingValues(datos);
+
+        
+    // Verifica si hay suficientes elementos para construir una fila
+    for (size_t i = 0; i < datos.size(); i++) {
+        // Construye una estructura OptionData y agrega al DataFrame
+        OptionData opcion;
+        double bid = -1.0;
+        double ask = -1.0;
+        double under_bid = -1.0;
+        double under_ask = -1.0;
+
+        // Valida si los elementos no estan vacios y son del tipo double
+        // La funcion isValidDouble devuelve true o false, pero modifica
+        // el segundo parametro que se le pasa entonces lo puedo usar
+        // ya transformado al tipo double.
+
+        if (isValidDouble(datos[i].bid, bid) &&
+            isValidDouble(datos[i].ask, ask)) {
+                opcion.price = (bid + ask) / 2;
+        }
+        /*
+        if (!elementos[3].empty() && isValidDouble(elementos[3], bid)){
+            if (!elementos[4].empty() && isValidDouble(elementos[4], ask)) {
+                opcion.price = (bid + ask) / 2;
+            } else {
+                opcion.price = bid;
+            }
+        } else if(!elementos[4].empty() && isValidDouble(elementos[4], ask)){
+            opcion.price = ask;
+        }
+        */
+
+        if (isValidDouble(datos[i].underBid, under_bid) &&
+            isValidDouble(datos[i].underAsk, under_ask)) {
+                opcion.under_price = (under_ask + under_bid) / 2;
+        }
+
+        /*
+        if (!elementos[5].empty() && isValidDouble(elementos[5], under_bid)) {
+            if (!elementos[6].empty() && isValidDouble(elementos[6], under_ask)) {
+                opcion.under_price = (under_ask + under_bid) / 2;
+            } else {
+                opcion.under_price = under_bid;
+            }
+        } else if (!elementos[6].empty() && isValidDouble(elementos[6], under_ask)) {
+            opcion.under_price = under_ask;
+        }
+        */
+        // Valido con una expresion regular que la fecha tenga siempre
+        // el mismo formato.
+        if (!datos[i].created_at.empty()) {
+            opcion.expiration = obtenerDiferenciaEnAnios(datos[i].created_at, 
+                                                         fecha_vencimiento);
+        }
+
+        opcion.implied_volatility = -1;
+
+        // Si todas las validaciones fueron correctas calcula la
+        // volatilidad implicita
+        if (opcion.expiration > 0 && 
+            opcion.price > 0 && 
+            opcion.under_price > 0) {
+
+            opcion.implied_volatility = findImpliedVolatility(opcion.under_price, 
+            strike, opcion.expiration, rf_continua, opcion.price, 0.00001, 5, 
+            tolerance, max_iterations);
+        }
+
+        opcion.description = "GFGC1033OC";
+        opcion.strike = 1033;
+        opcion.kind = "CALL";
+        opcion.bid = bid;
+        opcion.ask = ask;
+        opcion.under_ask = under_ask;
+        opcion.under_bid = under_bid;
+        opcion.created_at = datos[i].created_at;
+        opcion.expiration_date = fecha_vencimiento;
+
+        dataframe.push_back(opcion);
+    }
+
+    saveFile(dataframe);
 
     return 0;
 }
