@@ -452,7 +452,7 @@ double calculateUnderVolatility(const double& bid, const double& ask) {
     double term1 = 0.5 * std::pow(logDifference, 2);
     double term2 = (2 * std::log(2) - 1) * std::pow(logDifference, 2);
 
-    return std::sqrt(term1 - term2);
+    return std::sqrt(term1 - term2) * 365;
 }
 
 int main() {
