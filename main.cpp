@@ -85,9 +85,10 @@ bool isValidDouble(const std::string& str, double& result) {
     luego intenta convertirla a un número de tipo double utilizando std::stod.
 
     Si la conversión es exitosa, el resultado se almacena en la variable proporcionada 
-    como argumento. Esto se logra porque es pasado por referencia a la función 
-    (double& result), lo que significa que cualquier cambio realizado en result 
-    dentro de la función se reflejará en la variable bid fuera de la función.
+    como argumento. Esto se logra porque es pasado por referencia a la función y
+    no se le asigna `const` como al otro parametro (double& result), lo que 
+    significa que cualquier cambio realizado en result  dentro de la función se 
+    reflejará en la variable bid fuera de la función.
 
     La función isValidDouble devuelve true si la conversión es exitosa y false 
     si hay algún error durante la conversión.
@@ -259,8 +260,6 @@ struct Data {
 
 void replaceMissingValues(std::vector<Data>& data){
     double bid, ask, underBid, underAsk;
-
-    // No encontre que se pueda iterar sobre los nombres de las columnas en c++
 
     // Primera iteracion
     if(!isValidDouble(data[0].ask, ask)) {
@@ -456,7 +455,9 @@ double calculateUnderVolatility(const double& bid, const double& ask, const doub
     double term1 = 0.5 * std::pow(logDifference, 2);
     double term2 = (2 * std::log(2) - 1) * std::pow(logDifference, 2);
 
-    return (std::sqrt(term1 - term2) * 60 * 24) * (1 + expiration);
+    // 6 horas y media de ruedas diaria. 6.5 x 60 = 390
+    // 256 son los dias que se pueden operar (aproximadamente) en un año
+    return std::sqrt(term1 - term2) * std::sqrt(256 * 390) ;
 }
 
 int main() {
