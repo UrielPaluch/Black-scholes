@@ -68,6 +68,8 @@ struct OptionData {
     std::string created_at;
     std::string expiration_date;
     double price;
+    double intrinsic_value;
+    double extrinsic_value;
     double under_price;
     double implied_volatility;
     double under_volatility;
@@ -211,7 +213,7 @@ void saveFile(const std::vector<OptionData>& dataframe) {
     std::ofstream archivoSalida(archivoPath);
 
     // Encabezados
-    archivoSalida << "Description,Strike,Kind,Bid,Ask,Under Bid,Under Ask,Created At,Price,Under Price,Implied volatility,Under volatility,Years to expiration\n";
+    archivoSalida << "Description,Strike,Kind,Bid,Ask,Under Bid,Under Ask,Created At,Price,Valor intrinsico,Valor extrinsico,Under Price,Implied volatility,Under volatility,Years to expiration\n";
 
     // Verificar si el archivo se abrió correctamente
     if (!archivoSalida.is_open()) {
@@ -230,6 +232,8 @@ void saveFile(const std::vector<OptionData>& dataframe) {
                       << row.under_ask << ","
                       << row.created_at << ","
                       << row.price << ","
+                      << row.intrinsic_value << ","
+                      << row.extrinsic_value << ","
                       << row.under_price << ","
                       << row.implied_volatility << ","
                       << row.under_volatility << ","
@@ -447,12 +451,12 @@ void replaceMissingValues(std::vector<Data>& data){
     return;
 }
 
-double calculateUnderVolatility(const double& bid, const double& ask) {
+double calculateUnderVolatility(const double& bid, const double& ask, const double& expiration) {
     double logDifference = std::log(bid) - std::log(ask);
     double term1 = 0.5 * std::pow(logDifference, 2);
     double term2 = (2 * std::log(2) - 1) * std::pow(logDifference, 2);
 
-    return std::sqrt(term1 - term2) * 365;
+    return (std::sqrt(term1 - term2) * 60 * 24) * (1 + expiration);
 }
 
 int main() {
@@ -478,7 +482,6 @@ int main() {
     }
 
     // Para hacer la interpolacion
-    double initial_guess = 0.5; // Estimación inicial de la volatilidad
     double tolerance = 0.00001; // Tolerancia
     int max_iterations = 500;  // Número máximo de iteraciones
 
@@ -558,6 +561,13 @@ int main() {
         // el segundo parametro que se le pasa entonces lo puedo usar
         // ya transformado al tipo double.
 
+        // Valido con una expresion regular que la fecha tenga siempre
+        // el mismo formato.
+        if (!datos[i].created_at.empty()) {
+            opcion.expiration = obtenerDiferenciaEnAnios(datos[i].created_at, 
+                                                         fecha_vencimiento);
+        }
+
         if (isValidDouble(datos[i].bid, bid) &&
             isValidDouble(datos[i].ask, ask)) {
                 opcion.price = (bid + ask) / 2;
@@ -566,14 +576,7 @@ int main() {
         if (isValidDouble(datos[i].underBid, under_bid) &&
             isValidDouble(datos[i].underAsk, under_ask)) {
                 opcion.under_price = (under_ask + under_bid) / 2;
-                opcion.under_volatility = calculateUnderVolatility(under_bid, under_ask);
-        }
-
-        // Valido con una expresion regular que la fecha tenga siempre
-        // el mismo formato.
-        if (!datos[i].created_at.empty()) {
-            opcion.expiration = obtenerDiferenciaEnAnios(datos[i].created_at, 
-                                                         fecha_vencimiento);
+                opcion.under_volatility = calculateUnderVolatility(under_bid, under_ask, opcion.expiration);
         }
 
         opcion.implied_volatility = -1;
@@ -598,6 +601,8 @@ int main() {
         opcion.under_bid = under_bid;
         opcion.created_at = datos[i].created_at;
         opcion.expiration_date = fecha_vencimiento;
+        opcion.intrinsic_value = opcion.under_price - opcion.strike;
+        opcion.extrinsic_value = opcion.price - opcion.intrinsic_value;
 
         dataframe.push_back(opcion);
     }
