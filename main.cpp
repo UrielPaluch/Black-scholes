@@ -1,3 +1,12 @@
+/**
+ * @file
+ * @brief Programa para calcular la volatilidad implícita utilizando el modelo Black-Scholes.
+ * 
+ * Este programa lee datos de opciones financieras de un archivo CSV, realiza interpolación
+ * para manejar valores faltantes y calcula la volatilidad implícita para cada opción.
+ * Los resultados se guardan en un nuevo archivo CSV.
+ */
+
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -10,7 +19,12 @@
 #include <chrono>
 #include <filesystem>
 
-// Función de distribución acumulativa normal estándar (CDF)
+/**
+ * @brief Función de distribución acumulativa normal estándar (CDF).
+ * 
+ * @param x Valor para el cual se calcula la CDF.
+ * @return Valor de la CDF en x.
+ */
 double cdf(double x) {
     return 0.5 * (1 + std::erf(x / std::sqrt(2)));
 }
@@ -19,7 +33,16 @@ double calculate_d1(double S, double K, double T, double r, double sigma){
     return (std::log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * std::sqrt(T));
 }
 
-// Definición de la función de Black-Scholes para opciones de compra
+/**
+ * @brief Calcula el precio de una opción de compra utilizando el modelo Black-Scholes.
+ * 
+ * @param S Precio del activo subyacente.
+ * @param K Precio de ejercicio de la opción.
+ * @param T Tiempo hasta la expiración de la opción.
+ * @param r Tasa de interés libre de riesgo continua.
+ * @param sigma Volatilidad del activo subyacente.
+ * @return Precio de la opción de compra.
+ */
 double blackScholesCall(double S, double K, double T, double r, double sigma) {
 
     double d1 = calculate_d1(S, K, T, r, sigma);
@@ -29,13 +52,28 @@ double blackScholesCall(double S, double K, double T, double r, double sigma) {
     return S * cdf(d1) - K * std::exp(-r * T) * cdf(d2);
 }
 
+
+/**
+ * @brief Encuentra la volatilidad implícita utilizando el método de bisección.
+ * 
+ *
+ * Este método define los dos extremos (a y b) y calcula el punto en el medio (p).
+ * En base a este punto medio, se calcula el precio de la opción y se evalúa si
+ * hay que ir a la derecha o izquierda de p, achicando el intervalo.
+ * 
+ * @param S Precio del activo subyacente.
+ * @param K Precio de ejercicio de la opción.
+ * @param T Tiempo hasta la expiración de la opción.
+ * @param r Tasa de interés libre de riesgo continua.
+ * @param optionPrice Precio de la opción de compra.
+ * @param a Extremo izquierdo del intervalo de búsqueda.
+ * @param b Extremo derecho del intervalo de búsqueda.
+ * @param tolerance Tolerancia para la convergencia.
+ * @param maxIterations Número máximo de iteraciones.
+ * @return Volatilidad implícita encontrada o -1 si no converge.
+ */
 double findImpliedVolatility(double S, double K, double T, double r, double optionPrice,
                               double a, double b, double tolerance, int maxIterations) {
-    /* Se utiliza el metodo de biseccion para calcular la volatilidad implicita,
-    este metodo define los dos extremos (a y b) y calcula el punto en el medio (p).
-    En base a este punto medio se calcula el precio de la opcion y se evalua si
-    hay que ir a la derecha o izquierda de p, achicando el intervalo.
-    */
     double p, precio_teorico;
     
     for (int i = 0; i < maxIterations; ++i) {
@@ -56,7 +94,9 @@ double findImpliedVolatility(double S, double K, double T, double r, double opti
     return -1.0;
 }
 
-// Definición de la "clase" para representar el DataFrame
+/**
+ * @brief Estructura para representar los datos de una opción en el DataFrame.
+ */
 struct OptionData {
     std::string description;
     int strike;
@@ -76,23 +116,14 @@ struct OptionData {
     double expiration;
 };
 
-// Función de validación para la conversión de cadena a double
+/**
+ * @brief Función de validación para la conversión de cadena a double.
+ * 
+ * @param str Cadena a validar y convertir.
+ * @param result Variable donde se almacenará el resultado de la conversión.
+ * @return true si la conversión es exitosa, false en caso contrario.
+ */
 bool isValidDouble(const std::string& str, double& result) {
-    /* isValidDouble toma dos argumentos: un string y una variable de tipo double.
-
-    Dentro de isValidDouble, se realiza una validación especial para garantizar
-    que la cadena utilice el formato adecuado (reemplazando comas por puntos) y 
-    luego intenta convertirla a un número de tipo double utilizando std::stod.
-
-    Si la conversión es exitosa, el resultado se almacena en la variable proporcionada 
-    como argumento. Esto se logra porque es pasado por referencia a la función y
-    no se le asigna `const` como al otro parametro (double& result), lo que 
-    significa que cualquier cambio realizado en result  dentro de la función se 
-    reflejará en la variable bid fuera de la función.
-
-    La función isValidDouble devuelve true si la conversión es exitosa y false 
-    si hay algún error durante la conversión.
-    */
     std::string strWithDot = str;
     
     // Reemplazar comas por puntos en la cadena
@@ -119,6 +150,12 @@ bool isValidDouble(const std::string& str, double& result) {
     }
 }
 
+/**
+ * @brief Función de validación para el formato de fecha.
+ * 
+ * @param date Cadena que representa una fecha.
+ * @return true si el formato es válido, false en caso contrario.
+ */
 bool isValidFormatDate(const std::string& date) {
     // Expresión regular para el formato de fecha
     std::regex date_regex("^(0?[1-9]|1[0-2])/(0?[1-9]|1[0-9]|2[0-9]|3[0-1])/(20[0-9][0-9]) (0?[0-9]|1[0-9]|2[0-3]):([0-5][0-9])$");
@@ -145,6 +182,12 @@ bool isValidFormatDate(const std::string& date) {
     }
 }
 
+/**
+ * @brief Función de validación para el formato de fecha de vencimiento.
+ * 
+ * @param date Cadena que representa una fecha de vencimiento.
+ * @return true si el formato es válido, false en caso contrario.
+ */
 bool isValidFormatExpirationDate(const std::string& date) {
     // Expresión regular para el formato de fecha
     std::regex date_regex("\\d{2}/\\d{2}/\\d{4}");
@@ -158,7 +201,13 @@ bool isValidFormatExpirationDate(const std::string& date) {
     }
 }
 
-// Función para obtener la diferencia en días entre dos fechas
+/**
+ * @brief Obtiene la diferencia en años entre dos fechas.
+ * 
+ * @param fecha1_str Cadena que representa la primera fecha.
+ * @param fecha2_str Cadena que representa la segunda fecha.
+ * @return Diferencia en años entre las fechas o -1 si hay un error.
+ */
 double obtenerDiferenciaEnAnios(const std::string& fecha1_str, const std::string& fecha2_str) {
     // Convertir cadenas a tipos de fecha y hora
     std::tm tm1 = {};
@@ -205,6 +254,11 @@ double obtenerDiferenciaEnAnios(const std::string& fecha1_str, const std::string
     return diferencia_en_anios;
 }
 
+/**
+ * @brief Guarda los datos en un archivo CSV.
+ * 
+ * @param dataframe Vector que contiene los datos del DataFrame.
+ */
 void saveFile(const std::vector<OptionData>& dataframe) {
 
     // Nombre del archivo
@@ -247,6 +301,9 @@ void saveFile(const std::vector<OptionData>& dataframe) {
     std::cout << "Datos guardados correctamente" << std::endl;
 }
 
+/**
+ * @brief Estructura para representar los datos de una opción antes de la interpolación.
+ */
 struct Data {
     std::string description;
     std::string strike;
@@ -258,6 +315,11 @@ struct Data {
     std::string created_at;
 };
 
+/**
+ * @brief Reemplaza los valores faltantes en los datos utilizando interpolación.
+ * 
+ * @param data Vector que contiene los datos antes de la interpolación.
+ */
 void replaceMissingValues(std::vector<Data>& data){
     double bid, ask, underBid, underAsk;
 
@@ -450,6 +512,14 @@ void replaceMissingValues(std::vector<Data>& data){
     return;
 }
 
+/**
+ * @brief Calcula la volatilidad del activo subyacente.
+ * 
+ * @param bid Precio de la oferta.
+ * @param ask Precio de la demanda.
+ * @param expiration Tiempo hasta la expiración de la opción.
+ * @return Volatilidad del activo subyacente.
+ */
 double calculateUnderVolatility(const double& bid, const double& ask, const double& expiration) {
     double logDifference = std::log(bid) - std::log(ask);
     double term1 = 0.5 * std::pow(logDifference, 2);
