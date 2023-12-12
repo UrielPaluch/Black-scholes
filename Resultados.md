@@ -1,11 +1,11 @@
 # Resultados de la prueba técnica
 
-El objetivo de este documento es dejar plasmado minimamente el marco teórico utilizado
+Este documento tiene como objetivo registrar mínimamente el marco teórico utilizado
 y analizar los resultados obtenidos a partir de la serie temporal.
 
-Se realizó el procesamiento de los datos de Exp_Octubre.csv con el archivo `main.cpp`
-que arroja el resultado output.csv y luego se graficaron con `plot_1.py` y
-`plot_2.py` utilizando pandas y matplotlib.
+Se realizó el procesamiento de los datos de Exp_Octubre.csv con el archivo `main.cpp`,
+que produce el resultado output.csv. Posteriormente, se generaron gráficos utilizando
+`plot_1.py` y `plot_2.py`, haciendo uso de las bibliotecas pandas y matplotlib.
 
 ## Tabla de contenidos
 
@@ -147,9 +147,9 @@ la diferencia que hay desde la fecha de creación hasta la fecha de expiración.
 
 #### replaceMissingValues
 
-En el data set hay valores nulos, la definición que se tomo para reemplazarlos es
+En el data set hay valores nulos; la definición que se tomó para reemplazarlos es
 utilizar el promedio entre el valor anterior y el valor siguiente que no sean nulos.
-De esta forma se logra suavizar la serie.
+De esta forma, se logra suavizar la serie.
 
 Para los casos particulares del primer y último valor, se toma exclusivamente el
 primer (o último) valor disponible.
@@ -161,8 +161,8 @@ la sección [Volatilidad histórica intradiaria](#volatilidad-histórica-intradi
 tomando en cuenta que el open = low = bid y el close = high = ask.
 
 Como el timeframe es de 1 minuto pero los valores de la volatilidad implícita son
-anaulizados, se aproxima la volatilidad anualizada del subyacente multiplicando
-por la raiz cuadrada de la cantidad de minutos que hay en el año en los que se
+anualizados, se aproxima la volatilidad anualizada del subyacente multiplicando
+por la raíz cuadrada de la cantidad de minutos que hay en el año en los que se
 pueden operar.
 
 ## Análisis
@@ -171,19 +171,19 @@ pueden operar.
 
 ![Figura completa](plots/Figure_1.png)
 
-A primera vista observamos unos pocos outliers, podríamos despreciarlos
-considerandolos ruidos propios del mercado, dado que tenemos data con periodicidad
+A primera vista, observamos unos pocos outliers; podríamos despreciarlos
+considerándolos ruidos propios del mercado, dado que tenemos data con periodicidad
 de 1 minuto.
 
-Sobre el margen derecho podemos observar como el gráfico se dispersa
-al final de la serie. Si analizamos los datos que brinda output.csv podemos
+Sobre el margen derecho, podemos observar cómo el gráfico se dispersa
+al final de la serie. Si analizamos los datos que brinda output.csv, podemos
 entender que la mayor dispersión se debe a cambios en la IV y no a la volatilidad
 del subyacente.
 
-El modelo de BS puede no andar bien cuando las opciones estan muy
-cerca de la fecha de expiracion. Hay muchas explicaciones, la que mas me convenció
-fue que el modelo esta basado en retornos normales del subyacente, y en periodos muy
-cortos (como las opciones que estan cerca de la fecha de expiración) puede que esto
+El modelo de BS puede no funcionar bien cuando las opciones están muy
+cerca de la fecha de expiración. Hay muchas explicaciones, la que más me convenció
+fue que el modelo está basado en retornos normales del subyacente, y en periodos muy
+cortos (como las opciones que están cerca de la fecha de expiración) puede que esto
 no se cumpla, incurriendo en una volatilidad implícita mucho mayor.
 
 Para toda la serie se observa que la volatilidad implícita es mayor que la del
@@ -191,12 +191,12 @@ subyacente.
 
 ### Conclusiones
 
-Si hacemos zoom dentro de cualquier timeframe en particular se puede observar como
+Si hacemos zoom dentro de cualquier timeframe en particular, se puede observar cómo
 la volatilidad del subyacente es mucho mayor que la volatilidad implícita pero
-ambos siguiendo una linea de tendencia.
+ambos siguiendo una línea de tendencia.
 
 ![Zoom](plots/Figure_2.png)
 
-En mi opinion, esto se debe a que la volatilidad implicita tiene en cuenta una
+En mi opinión, esto se debe a que la volatilidad implícita tiene en cuenta una
 mayor cantidad de eventos mientras que la volatilidad realizada solo tiene en
 cuenta los eventos del periodo en el que se calcula.
