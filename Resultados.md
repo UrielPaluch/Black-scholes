@@ -4,14 +4,14 @@ El objetivo de este documento es dejar plasmado minimamente el marco teórico ut
 y analizar los resultados obtenidos a partir de la serie temporal.
 
 Se realizó el procesamiento de los datos de Exp_Octubre.csv con el archivo `main.cpp`
-que arroja el resultado output.csv y luego se graficaron con `plot.py` utilizando
-pandas y matplotlib.
+que arroja el resultado output.csv y luego se graficaron con `plot_1.py` y
+`plot_2.py` utilizando pandas y matplotlib.
 
 ## Tabla de contenidos
 
 - [Resultados de la prueba técnica](#resultados-de-la-prueba-técnica)
   - [Tabla de contenidos](#tabla-de-contenidos)
-  - [Modelo de Black-Scholes-Melon](#modelo-de-black-scholes-melon)
+  - [Modelo de Black-Scholes](#modelo-de-black-scholes)
     - [Supuestos](#supuestos)
     - [Volatilidad implícita (Implied volatility IV)](#volatilidad-implícita-implied-volatility-iv)
     - [Volatilidad Historica](#volatilidad-historica)
@@ -27,7 +27,7 @@ pandas y matplotlib.
     - [A primera vista](#a-primera-vista)
     - [Conclusiones](#conclusiones)
 
-## Modelo de Black-Scholes-Melon
+## Modelo de Black-Scholes
 
 $C_0$: Precio de la opción de compra.  
 $S_0$: Precio de las acciones.  
@@ -142,8 +142,8 @@ de 500.
 
 #### obtenerDiferenciaEnAnios
 
-Dado que todos los parámetros del modelo de BSM se definen en años, se anualiza
-la diferencia en día que hay hasta la fecha de expiración.
+Dado que todos los parámetros del modelo de BS se definen en años, se anualiza
+la diferencia que hay desde la fecha de creación hasta la fecha de expiración.
 
 #### replaceMissingValues
 
@@ -161,15 +161,11 @@ la sección [Volatilidad histórica intradiaria](#volatilidad-histórica-intradi
 tomando en cuenta que el open = low = bid y el close = high = ask.
 
 Como el timeframe es de 1 minuto pero los valores de la volatilidad implícita son
-hasta finish, se multiplica el resultado de la fórmula por 60 para que los minutos
-se hagan horas, luego por 24 para hacerlo días y por último por 1 + la cantidad de
-años hasta expiración. Logrando la misma escala para ambas series y pudiendo hacerlas
-comparables.
+anaulizados, se aproxima la volatilidad anualizada del subyacente multiplicando
+por la raiz cuadrada de la cantidad de minutos que hay en el año en los que se
+pueden operar.
 
 ## Análisis
-
-Podemos analizar el gráfico proporcionado y luego podemos ahondar en los datos
-para tener un entendimiento mayor.
 
 ### A primera vista
 
@@ -179,17 +175,25 @@ A primera vista observamos unos pocos outliers, podríamos despreciarlos
 considerandolos ruidos propios del mercado, dado que tenemos data con periodicidad
 de 1 minuto.
 
-Sobre el margen derecho podemos observar como la volatilidad implicita (IV) se dispara
-al final de la serie. El modelo de BSM puede no andar bien cuando las opciones estan muy
+Sobre el margen derecho podemos observar como el gráfico se dispersa
+al final de la serie. Si analizamos los datos que brinda output.csv podemos
+entender que la mayor dispersión se debe a cambios en la IV y no a la volatilidad
+del subyacente.
+
+El modelo de BS puede no andar bien cuando las opciones estan muy
 cerca de la fecha de expiracion. Hay muchas explicaciones, la que mas me convenció
 fue que el modelo esta basado en retornos normales del subyacente, y en periodos muy
 cortos (como las opciones que estan cerca de la fecha de expiración) puede que esto
 no se cumpla, incurriendo en una volatilidad implícita mucho mayor.
 
+Para toda la serie se observa que la volatilidad implícita es mayor que la del
+subyacente.
+
 ### Conclusiones
 
 Si hacemos zoom dentro de cualquier timeframe en particular se puede observar como
-la volatilidad del subyacente varía teniendo como linea de tendencia la IV.
+la volatilidad del subyacente es mucho mayor que la volatilidad implícita pero
+ambos siguiendo una linea de tendencia.
 
 ![Zoom](plots/Figure_2.png)
 
