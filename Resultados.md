@@ -171,9 +171,7 @@ pueden operar.
 
 ![Figura completa](plots/Figure_1.png)
 
-A primera vista, observamos unos pocos outliers; podríamos despreciarlos
-considerándolos ruidos propios del mercado, dado que tenemos data con periodicidad
-de 1 minuto.
+A primera vista, observamos unos pocos outliers; podríamos despreciarlos considerándolos ruidos propios del mercado, dado que tenemos data con periodicidad de 1 minuto. También podríamos intuir que son noticias exógenas (como pago de dividendos o presentación de resultados).
 
 Sobre el margen derecho, podemos observar cómo el gráfico se dispersa
 al final de la serie. Si analizamos los datos que brinda output.csv, podemos
@@ -192,7 +190,7 @@ subyacente.
 ### Conclusiones
 
 Si hacemos zoom dentro de cualquier timeframe en particular, se puede observar cómo
-la volatilidad del subyacente es mucho mayor que la volatilidad implícita pero
+la dispersión de la volatilidad del subyacente es mucho mayor que la volatilidad implícita pero
 ambos siguiendo una línea de tendencia.
 
 ![Zoom](plots/Figure_2.png)
