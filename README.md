@@ -1,6 +1,6 @@
 # Introducción
 
-El ejercicio se resolvió utilizando C++ (`main.cpp`) y se graficó con Python (`plot_1.py` y `plot_2.py`).
+Para el ejercicio se resolvió utilizando C++ (`main.cpp`) y se graficó con Python (`plot_1.py` y `plot_2.py`).
 
 Para el cálculo de la volatilidad implícita, se utilizó el método de bisección.
 
