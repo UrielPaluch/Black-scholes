@@ -132,7 +132,7 @@ El objetivo de esta sección es poder especificar las definiciones que se toman 
 
 Se realiza el calculo para encontrar la volatilidad implícita a través del método
 de bisección. Dados los extremos a y b (a = 0.00001 ; b = 5) se parte a la mitad
-la función (en un punto p) y se evalua si el precio del opción es menor o mayor
+la función (en un punto p) y se evalua si el precio de la opción es menor o mayor
 que ese precio valuado en p. Se realizan calculos iterativos hasta que el precio
 calculado en p sea equivalente al precio de la opción, donde p = $\sigma$.
 
