@@ -1,4 +1,4 @@
-# Resultados de la prueba técnica
+# Resultados
 
 Este documento tiene como objetivo registrar mínimamente el marco teórico utilizado
 y analizar los resultados obtenidos a partir de la serie temporal.
@@ -9,7 +9,7 @@ que produce el resultado output.csv. Posteriormente, se generaron gráficos util
 
 ## Tabla de contenidos
 
-- [Resultados de la prueba técnica](#resultados-de-la-prueba-técnica)
+- [Resultados](#resultados)
   - [Tabla de contenidos](#tabla-de-contenidos)
   - [Modelo de Black-Scholes](#modelo-de-black-scholes)
     - [Supuestos](#supuestos)
